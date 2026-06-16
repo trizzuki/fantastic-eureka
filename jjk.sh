@@ -3,7 +3,7 @@
 set -e
 
 # =========================
-# Config
+# CONFIG
 # =========================
 SKIP_QCOW2_DOWNLOAD=0
 
@@ -12,28 +12,38 @@ QCOW2_DISK="$VM_DIR/windows.qcow2"
 VIRTIO_ISO="$VM_DIR/virtio-win.iso"
 NOVNC_DIR="$HOME/noVNC"
 
-OVMF_DIR="$HOME/qemu/ovmf"
+OVMF_DIR="$VM_DIR/ovmf"
 OVMF_CODE="$OVMF_DIR/OVMF_CODE.fd"
 OVMF_VARS="$OVMF_DIR/OVMF_VARS.fd"
 
-mkdir -p "$OVMF_DIR"
 mkdir -p "$VM_DIR"
+mkdir -p "$OVMF_DIR"
 
 # =========================
-# Install Dependency
+# INSTALL DEPENDENCIES
 # =========================
-sudo apt update
+apt update
 
-sudo apt install -y \
+apt install -y \
+wget \
+curl \
+git \
 qemu-system-x86 \
 qemu-utils \
-git \
-wget \
-python3-websockify \
-curl
+python3-websockify
 
 # =========================
-# Download OVMF
+# INSTALL CLOUDFLARED
+# =========================
+if ! command -v cloudflared >/dev/null 2>&1; then
+    wget -O /tmp/cloudflared.deb \
+    https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+
+    dpkg -i /tmp/cloudflared.deb || apt -f install -y
+fi
+
+# =========================
+# DOWNLOAD OVMF
 # =========================
 if [ ! -f "$OVMF_CODE" ]; then
     wget -O "$OVMF_CODE" \
@@ -46,20 +56,22 @@ if [ ! -f "$OVMF_VARS" ]; then
 fi
 
 # =========================
-# Download QCOW2
+# DOWNLOAD QCOW2
 # =========================
 if [ "$SKIP_QCOW2_DOWNLOAD" -ne 1 ]; then
     if [ ! -f "$QCOW2_DISK" ]; then
-        wget -O "$QCOW2_DISK" https://bit.ly/45hceMn
+        echo "Downloading QCOW2..."
+        wget -O "$QCOW2_DISK" "https://bit.ly/45hceMn"
     fi
 fi
 
 if [ ! -f "$QCOW2_DISK" ]; then
+    echo "Creating QCOW2..."
     qemu-img create -f qcow2 "$QCOW2_DISK" 50G
 fi
 
 # =========================
-# VirtIO
+# DOWNLOAD VIRTIO
 # =========================
 if [ ! -f "$VIRTIO_ISO" ]; then
     wget -O "$VIRTIO_ISO" \
@@ -67,46 +79,39 @@ if [ ! -f "$VIRTIO_ISO" ]; then
 fi
 
 # =========================
-# noVNC
+# CLONE noVNC
 # =========================
 if [ ! -d "$NOVNC_DIR/.git" ]; then
     git clone https://github.com/novnc/noVNC.git "$NOVNC_DIR"
 fi
 
 # =========================
-# Cloudflared
-# =========================
-if ! command -v cloudflared >/dev/null 2>&1; then
-    wget -O cloudflared.deb \
-    https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-
-    sudo dpkg -i cloudflared.deb || sudo apt -f install -y
-fi
-
-# =========================
-# Kill old process
+# STOP OLD PROCESS
 # =========================
 pkill -f qemu-system-x86_64 || true
 pkill -f novnc_proxy || true
 pkill -f cloudflared || true
 
+sleep 2
+
 # =========================
-# Start QEMU
+# START QEMU
+# TANPA KVM
 # =========================
+echo "Starting QEMU..."
+
 nohup qemu-system-x86_64 \
--enable-kvm \
--cpu host \
--smp 8 \
--m 28672 \
--M q35 \
+-machine q35,accel=tcg \
+-cpu qemu64 \
+-smp 4 \
+-m 4096 \
 -device usb-tablet \
 -device virtio-balloon-pci \
+-device virtio-rng-pci \
 -vga virtio \
 -net nic,model=virtio-net-pci \
 -net user,hostfwd=tcp::3389-:3389 \
 -boot c \
--device virtio-serial-pci \
--device virtio-rng-pci \
 -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
 -drive if=pflash,format=raw,file="$OVMF_VARS" \
 -drive file="$QCOW2_DISK",format=qcow2,if=virtio \
@@ -115,11 +120,24 @@ nohup qemu-system-x86_64 \
 -display none \
 > /tmp/qemu.log 2>&1 &
 
-sleep 5
+sleep 10
 
 # =========================
-# Start noVNC
+# CEK QEMU
 # =========================
+if ! pgrep -f qemu-system-x86_64 >/dev/null; then
+    echo ""
+    echo "QEMU FAILED!"
+    echo ""
+    cat /tmp/qemu.log
+    exit 1
+fi
+
+# =========================
+# START noVNC
+# =========================
+echo "Starting noVNC..."
+
 nohup "$NOVNC_DIR/utils/novnc_proxy" \
 --vnc localhost:5900 \
 --listen 2016 \
@@ -128,24 +146,38 @@ nohup "$NOVNC_DIR/utils/novnc_proxy" \
 sleep 5
 
 # =========================
-# Start Cloudflare Tunnel
+# START CLOUDFLARE
 # =========================
+echo "Starting Cloudflare Tunnel..."
+
 nohup cloudflared tunnel \
 --no-autoupdate \
---url http://localhost:2016 \
+--url http://127.0.0.1:2016 \
 > /tmp/cloudflared.log 2>&1 &
 
-sleep 10
+sleep 15
 
 URL=$(grep -o 'https://[a-zA-Z0-9.-]*trycloudflare.com' /tmp/cloudflared.log | head -n1)
 
 echo ""
-echo "======================================"
-echo "Windows Ready"
-echo "$URL/vnc.html"
-echo "======================================"
+echo "=========================================="
+
+if [ -n "$URL" ]; then
+    echo "Windows QEMU Ready"
+    echo ""
+    echo "$URL/vnc.html"
+else
+    echo "Cloudflare tunnel failed"
+    echo ""
+    cat /tmp/cloudflared.log
+fi
+
+echo "=========================================="
 echo ""
 
+# =========================
+# KEEP ALIVE
+# =========================
 while true
 do
     sleep 300
