@@ -101,14 +101,16 @@ sleep 2
 echo "Starting QEMU..."
 
 nohup qemu-system-x86_64 \
--machine accel=tcg \
+-machine q35,accel=tcg \
 -cpu qemu64 \
 -smp 2 \
--m 2048 \
+-m 4096 \
 -vga std \
+-drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+-drive if=pflash,format=raw,file="$OVMF_VARS" \
+-hda "$QCOW2_DISK" \
 -vnc :0 \
 -display none \
--drive file="$QCOW2_DISK",format=qcow2 \
 > /tmp/qemu.log 2>&1 &
 
 sleep 10
