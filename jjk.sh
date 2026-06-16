@@ -103,21 +103,14 @@ echo "Starting QEMU..."
 nohup qemu-system-x86_64 \
 -machine q35,accel=tcg \
 -cpu qemu64 \
--smp 4 \
+-smp 2 \
 -m 4096 \
--device usb-tablet \
--device virtio-balloon-pci \
--device virtio-rng-pci \
--vga virtio \
--net nic,model=virtio-net-pci \
--net user,hostfwd=tcp::3389-:3389 \
--boot c \
--drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
--drive if=pflash,format=raw,file="$OVMF_VARS" \
--drive file="$QCOW2_DISK",format=qcow2,if=virtio \
--drive file="$VIRTIO_ISO",media=cdrom \
+-vga std \
+-net nic \
+-net user \
 -vnc :0 \
 -display none \
+-drive file="$QCOW2_DISK",format=qcow2 \
 > /tmp/qemu.log 2>&1 &
 
 sleep 10
