@@ -101,13 +101,11 @@ sleep 2
 echo "Starting QEMU..."
 
 nohup qemu-system-x86_64 \
--machine q35,accel=tcg \
+-machine accel=tcg \
 -cpu qemu64 \
 -smp 2 \
--m 4096 \
+-m 2048 \
 -vga std \
--net nic \
--net user \
 -vnc :0 \
 -display none \
 -drive file="$QCOW2_DISK",format=qcow2 \
