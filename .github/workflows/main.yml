@@ -8,6 +8,47 @@ jobs:
     runs-on: windows-2022
 
     steps:
+
+      - name: Check Android
+        shell: pwsh
+        run: |
+          Write-Host "Android SDK: $env:ANDROID_HOME"
+          adb version
+          emulator -version
+
+      - name: Create AVD
+        shell: pwsh
+        run: |
+          sdkmanager "system-images;android-35;google_apis;x86_64"
+
+          cmd /c 'echo no | avdmanager create avd -n Pixel35 -k "system-images;android-35;google_apis;x86_64" --force'
+
+      - name: Start Android Emulator
+        shell: pwsh
+        run: |
+          Start-Process `
+            "$env:ANDROID_HOME\emulator\emulator.exe" `
+            -ArgumentList `
+              "-avd Pixel35",
+              "-gpu swiftshader_indirect",
+              "-no-snapshot",
+              "-no-boot-anim",
+              "-no-audio"
+
+      - name: Wait Android
+        shell: pwsh
+        run: |
+          adb wait-for-device
+
+          do {
+            Start-Sleep -Seconds 5
+            $boot = (adb shell getprop sys.boot_completed 2>$null).Trim()
+            Write-Host "Boot: $boot"
+          } while ($boot -ne "1")
+
+          Write-Host "Android is ready!"
+          adb devices
+
       - name: Run Script
         shell: pwsh
         run: |
