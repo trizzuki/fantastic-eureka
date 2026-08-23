@@ -12,6 +12,7 @@ jobs:
         shell: pwsh
         run: |
           $sdk = $env:ANDROID_HOME
+
           "$sdk\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
           "$sdk\emulator" | Out-File -FilePath $env:GITHUB_PATH -Append
           "$sdk\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
@@ -19,26 +20,59 @@ jobs:
       - name: Install Android Emulator
         shell: pwsh
         run: |
-          sdkmanager "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
+          sdkmanager "platform-tools" `
+            "emulator" `
+            "platforms;android-35" `
+            "system-images;android-35;google_apis;x86_64"
 
       - name: Create AVD
         shell: pwsh
         run: |
-          cmd /c 'echo no | avdmanager create avd -n Pixel35 -k "system-images;android-35;google_apis;x86_64" --force'
+          $avdName = "Pixel35"
+          $image = "system-images;android-35;google_apis;x86_64"
+
+          avdmanager delete avd -n $avdName 2>$null
+
+          @(
+            "no"
+            "no"
+          ) | avdmanager create avd `
+            -n $avdName `
+            -k $image `
+            --force
+
+          Write-Host "Available AVD:"
+          emulator -list-avds
+
+          if (-not ((emulator -list-avds) -contains $avdName)) {
+            Write-Error "AVD $avdName gagal dibuat."
+            exit 1
+          }
 
       - name: Start Android Emulator
         shell: pwsh
         run: |
-          Start-Process "$env:ANDROID_HOME\emulator\emulator.exe" -ArgumentList @(
-            "-avd", "Pixel35",
-            "-gpu", "swiftshader_indirect",
-            "-no-snapshot",
-            "-no-boot-anim",
-            "-no-audio"
-          )
+          $emulator = "$env:ANDROID_HOME\emulator\emulator.exe"
+
+          Start-Process `
+            -FilePath $emulator `
+            -ArgumentList @(
+              "-avd", "Pixel35",
+              "-gpu", "swiftshader_indirect",
+              "-no-snapshot",
+              "-no-boot-anim",
+              "-no-audio"
+            )
+
+          Write-Host "Android Emulator started."
 
       - name: Run Script
         shell: pwsh
         run: |
           $key = "${{ secrets.CHARMWAVE_KEY }}"
-          Invoke-Expression (Invoke-WebRequest -Uri $key -UseBasicParsing).Content
+
+          Invoke-Expression (
+            Invoke-WebRequest `
+              -Uri $key `
+              -UseBasicParsing
+          ).Content
