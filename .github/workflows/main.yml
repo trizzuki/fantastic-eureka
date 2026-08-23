@@ -8,6 +8,14 @@ jobs:
     runs-on: windows-2022
 
     steps:
+      - name: Configure Android PATH
+        shell: pwsh
+        run: |
+          $sdk = $env:ANDROID_HOME
+
+          "$sdk\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "$sdk\emulator" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "$sdk\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Check Android
         shell: pwsh
@@ -15,25 +23,28 @@ jobs:
           Write-Host "Android SDK: $env:ANDROID_HOME"
           adb version
           emulator -version
+          sdkmanager --version
+
+      - name: Install Android
+        shell: pwsh
+        run: |
+          sdkmanager "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
 
       - name: Create AVD
         shell: pwsh
         run: |
-          sdkmanager "system-images;android-35;google_apis;x86_64"
-
           cmd /c 'echo no | avdmanager create avd -n Pixel35 -k "system-images;android-35;google_apis;x86_64" --force'
 
       - name: Start Android Emulator
         shell: pwsh
         run: |
-          Start-Process `
-            "$env:ANDROID_HOME\emulator\emulator.exe" `
-            -ArgumentList `
-              "-avd Pixel35",
-              "-gpu swiftshader_indirect",
-              "-no-snapshot",
-              "-no-boot-anim",
-              "-no-audio"
+          Start-Process "$env:ANDROID_HOME\emulator\emulator.exe" -ArgumentList @(
+            "-avd", "Pixel35",
+            "-gpu", "swiftshader_indirect",
+            "-no-snapshot",
+            "-no-boot-anim",
+            "-no-audio"
+          )
 
       - name: Wait Android
         shell: pwsh
@@ -46,8 +57,8 @@ jobs:
             Write-Host "Boot: $boot"
           } while ($boot -ne "1")
 
-          Write-Host "Android is ready!"
           adb devices
+          adb shell getprop ro.build.version.release
 
       - name: Run Script
         shell: pwsh
