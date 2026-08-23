@@ -20,7 +20,8 @@ jobs:
       - name: Install Android Emulator
         shell: pwsh
         run: |
-          sdkmanager "platform-tools" `
+          sdkmanager `
+            "platform-tools" `
             "emulator" `
             "platforms;android-35" `
             "system-images;android-35;google_apis;x86_64"
@@ -33,21 +34,23 @@ jobs:
 
           avdmanager delete avd -n $avdName 2>$null
 
-          @(
-            "no"
-            "no"
-          ) | avdmanager create avd `
+          avdmanager create avd `
             -n $avdName `
             -k $image `
+            --device "pixel_2" `
             --force
 
           Write-Host "Available AVD:"
           emulator -list-avds
 
-          if (-not ((emulator -list-avds) -contains $avdName)) {
-            Write-Error "AVD $avdName gagal dibuat."
+          $avds = emulator -list-avds
+
+          if ($avds -notmatch "(?m)^Pixel35$") {
+            Write-Error "AVD Pixel35 gagal dibuat."
             exit 1
           }
+
+          Write-Host "AVD Pixel35 berhasil dibuat."
 
       - name: Start Android Emulator
         shell: pwsh
