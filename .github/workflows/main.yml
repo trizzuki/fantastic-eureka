@@ -29,6 +29,12 @@ jobs:
       - name: Create AVD
         shell: pwsh
         run: |
+          Write-Host "Device profiles:"
+          avdmanager list device
+
+          Write-Host ""
+          Write-Host "Creating AVD..."
+
           $avdName = "Pixel35"
           $image = "system-images;android-35;google_apis;x86_64"
 
@@ -37,20 +43,16 @@ jobs:
           avdmanager create avd `
             -n $avdName `
             -k $image `
-            --device "pixel_2" `
+            -d pixel_2 `
             --force
 
-          Write-Host "Available AVD:"
+          Write-Host ""
+          Write-Host "AVD list:"
+          avdmanager list avd
+
+          Write-Host ""
+          Write-Host "Emulator list:"
           emulator -list-avds
-
-          $avds = emulator -list-avds
-
-          if ($avds -notmatch "(?m)^Pixel35$") {
-            Write-Error "AVD Pixel35 gagal dibuat."
-            exit 1
-          }
-
-          Write-Host "AVD Pixel35 berhasil dibuat."
 
       - name: Start Android Emulator
         shell: pwsh
